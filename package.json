@@ -1,0 +1,23 @@
+{
+  "name": "ai-usage-bar",
+  "version": "0.1.0",
+  "description": "Windows taskbar pill wrapper for Win-CodexBar.",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "verify": "powershell -ExecutionPolicy Bypass -File scripts\\verify-codexbar.ps1",
+    "package": "electron-packager . \"AI Usage Bar\" --platform=win32 --arch=x64 --out=release --overwrite --no-prune --ignore=\"^win-CodexBar($|[\\\\/])\" --ignore=\"^upstream-CodexBar($|[\\\\/])\" --ignore=\"^release($|[\\\\/])\""
+  },
+  "keywords": [
+    "codexbar",
+    "taskbar",
+    "usage"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@electron/packager": "^20.2.0",
+    "electron": "^43.3.0"
+  }
+}

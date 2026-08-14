@@ -1,0 +1,19 @@
+# Local clones / build artifacts
+upstream-CodexBar/
+win-CodexBar/
+
+# Downloaded release artifacts
+# This repo intentionally commits the portable Win-CodexBar release so the
+# private repo is runnable after clone.
+!dist/*.exe
+!dist/*.exe.sha256
+
+# Packaged wrapper builds
+release/
+node_modules/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
