@@ -11,7 +11,7 @@ Saya memakai Windows-native port yang juga direferensikan oleh README CodexBar u
 - Versi yang diambil: `v0.48.0`
 - File portable: `dist/CodexBar-0.48.0-portable.exe`
 - Checksum resmi: `dist/CodexBar-0.48.0-portable.exe.sha256`
-- Wrapper taskbar: Electron app di repo ini, menempel di area taskbar seperti `hermes-token-tracker`.
+- Wrapper taskbar: Electron app di repo ini, menempel di area taskbar tanpa tray icon tambahan.
 
 ## Cara menjalankan
 
@@ -21,6 +21,8 @@ Jalankan taskbar wrapper:
 npm install
 npm start
 ```
+
+Wrapper akan muncul langsung di taskbar area. Klik bar untuk expand/collapse; tombol `Open CodexBar` menjalankan portable app.
 
 Atau double-click portable app langsung:
 

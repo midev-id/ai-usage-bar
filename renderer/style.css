@@ -14,7 +14,7 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 body.flipped { flex-direction: column-reverse; }
@@ -29,10 +29,11 @@ button, input { -webkit-app-region: no-drag; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
-  background: linear-gradient(135deg, rgba(24, 22, 38, 0.96), rgba(49, 39, 86, 0.92));
-  border: 1px solid rgba(188, 168, 255, 0.24);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: 0 11px;
+  background: rgba(18, 18, 20, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 13px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   cursor: pointer;
 }
 
@@ -45,27 +46,27 @@ button, input { -webkit-app-region: no-drag; }
 }
 
 .dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #ffb86c;
-  box-shadow: 0 0 8px rgba(255, 184, 108, 0.7);
+  background: #f59f00;
+  box-shadow: 0 0 8px rgba(245, 159, 0, 0.55);
   flex: 0 0 auto;
 }
 .dot.running {
-  background: #5be07a;
-  box-shadow: 0 0 8px rgba(91, 224, 122, 0.75);
+  background: #20c997;
+  box-shadow: 0 0 8px rgba(32, 201, 151, 0.65);
 }
 .dot.error {
-  background: #ff5f6d;
-  box-shadow: 0 0 8px rgba(255, 95, 109, 0.75);
+  background: #ff6b6b;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.65);
 }
 
 .pill-title {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #ffffff;
+  color: #f8f9fa;
 }
 
 .pill-subtitle {
@@ -75,7 +76,7 @@ button, input { -webkit-app-region: no-drag; }
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 10px;
-  color: #b9b0d8;
+  color: #adb5bd;
 }
 
 .pill-stats {
@@ -89,12 +90,12 @@ button, input { -webkit-app-region: no-drag; }
 .pill-stats span:first-child {
   font-size: 11px;
   font-weight: 600;
-  color: #a89cf0;
+  color: #74c0fc;
 }
 
 .pill-stats .state {
   font-size: 10px;
-  color: #9de08a;
+  color: #8ce99a;
 }
 
 .panel {
@@ -102,8 +103,9 @@ button, input { -webkit-app-region: no-drag; }
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(18, 17, 30, 0.98);
-  border: 1px solid rgba(188, 168, 255, 0.18);
+  background: rgba(22, 23, 26, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
 }
 
@@ -124,7 +126,7 @@ button, input { -webkit-app-region: no-drag; }
 .panel-subtitle {
   margin-top: 2px;
   font-size: 10px;
-  color: #8f87ae;
+  color: #adb5bd;
 }
 
 .header-actions {
@@ -138,7 +140,7 @@ button, input { -webkit-app-region: no-drag; }
   border: 0;
   border-radius: 7px;
   color: #d9d4f2;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
 }
 
@@ -159,7 +161,7 @@ button:hover {
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
-  background: radial-gradient(circle at top left, rgba(109, 90, 224, 0.30), rgba(255, 255, 255, 0.05));
+  background: linear-gradient(135deg, rgba(34, 139, 230, 0.20), rgba(255, 255, 255, 0.05));
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -175,7 +177,7 @@ button:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 10px;
-  color: #a9a1ca;
+  color: #adb5bd;
 }
 
 button {
@@ -191,7 +193,7 @@ button {
 .primary-btn {
   min-width: 58px;
   color: #fff;
-  background: linear-gradient(135deg, #7c65ff, #4fc3ff);
+  background: linear-gradient(135deg, #228be6, #15aabf);
   font-weight: 700;
 }
 
@@ -258,7 +260,7 @@ section + section {
 
 .settings-row input[type='range'] {
   flex: 1;
-  accent-color: #7c65ff;
+  accent-color: #228be6;
 }
 
 #width-value {

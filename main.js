@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, execFileSync, spawn } = require('child_process');
@@ -19,7 +19,6 @@ const exePath = path.join(__dirname, 'dist', 'CodexBar-0.48.0-portable.exe');
 const checksumPath = `${exePath}.sha256`;
 
 let win;
-let tray;
 let taskbarRect = null;
 let flipped = false;
 let dragStartBounds = null;
@@ -140,11 +139,6 @@ function pillAnchor() {
   };
 }
 
-function getIcon() {
-  const icon = nativeImage.createFromPath(exePath);
-  return icon.isEmpty() ? nativeImage.createEmpty() : icon;
-}
-
 function createWindow() {
   const { x, y } = currentDockPosition(collapsedSize().width, PILL_HEIGHT);
   win = new BrowserWindow({
@@ -177,20 +171,6 @@ function redock() {
   if (!win || win.getBounds().height > PILL_HEIGHT) return;
   const { x, y } = currentDockPosition(collapsedSize().width, PILL_HEIGHT);
   moveWindow({ x, y, ...collapsedSize() });
-}
-
-function createTray() {
-  tray = new Tray(getIcon());
-  tray.setToolTip('AI Usage Bar');
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open CodexBar', click: launchCodexBar },
-      { label: 'Show/Hide Bar', click: () => (win.isVisible() ? win.hide() : win.show()) },
-      { type: 'separator' },
-      { label: 'Quit', click: () => app.quit() },
-    ])
-  );
-  tray.on('click', () => (win.isVisible() ? win.hide() : win.show()));
 }
 
 function isCodexBarRunning() {
@@ -344,7 +324,6 @@ app.whenReady().then(() => {
   loadSettings();
   refreshTaskbarRect();
   createWindow();
-  createTray();
   refreshStatus();
   setInterval(refreshStatus, PROCESS_REFRESH_MS);
   setInterval(redock, DOCK_REFRESH_MS);
