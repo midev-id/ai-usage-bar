@@ -11,6 +11,7 @@ Saya memakai Windows-native port yang juga direferensikan oleh README CodexBar u
 - Versi yang diambil: `v0.48.0`
 - File portable: `dist/CodexBar-0.48.0-portable.exe`
 - Checksum resmi: `dist/CodexBar-0.48.0-portable.exe.sha256`
+- CLI provider usage: `dist/codexbar-cli.exe` (built from Win-CodexBar `codexbar` crate)
 - Wrapper taskbar: Electron app di repo ini, menempel di area taskbar tanpa tray icon tambahan.
 
 ## Cara menjalankan
@@ -71,4 +72,5 @@ cat dist/CodexBar-0.48.0-portable.exe.sha256
 - Artifact release ini unsigned, sesuai catatan upstream Win-CodexBar. Kalau Windows SmartScreen muncul, cocokkan SHA-256 di atas.
 - Portable build tidak perlu install. Kalau ingin Start Menu/autostart resmi, pakai installer release atau `winget install Finesssee.Win-CodexBar`.
 - Source CodexBar macOS sudah di-clone ke `upstream-CodexBar/` untuk referensi arsitektur.
+
 

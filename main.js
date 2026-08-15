@@ -215,29 +215,80 @@ function tokenLabel(totalTokens) {
   return `${Math.round(totalTokens)} tok`;
 }
 
+function providerDisplayName(id) {
+  const names = {
+    codex: 'Codex',
+    claude: 'Claude',
+    copilot: 'Copilot',
+    cursor: 'Cursor',
+    gemini: 'Gemini',
+    openaiapi: 'OpenAI',
+    openrouter: 'OpenRouter',
+  };
+  return names[id] || id.replace(/(^|[-_])(\w)/g, (_m, _sep, chr) => chr.toUpperCase());
+}
+
+function windowPercent(window) {
+  const value = Number(window?.used_percent ?? window?.usedPercent ?? window?.percent ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
 function normalizeProviderRecord(raw, index = 0) {
   const id = String(raw.id || raw.provider || raw.name || raw.label || `provider-${index}`).toLowerCase();
-  const label = raw.label || raw.display_name || raw.displayName || raw.name || raw.provider || id;
+  const label = raw.label || raw.display_name || raw.displayName || raw.name || raw.provider || providerDisplayName(id);
+
+  if (raw.error) {
+    return {
+      id,
+      label: String(label),
+      percent: 100,
+      state: 'error',
+      detail: String(raw.error).slice(0, 160),
+      hasUsage: false,
+      hasError: true,
+    };
+  }
+
+  const windows = [];
+  if (raw.usage?.primary) windows.push({ name: 'primary', window: raw.usage.primary });
+  if (raw.usage?.secondary) windows.push({ name: 'secondary', window: raw.usage.secondary });
+  for (const extra of raw.usage?.extra_rate_windows || raw.usage?.extraRateWindows || []) {
+    windows.push({ name: extra.title || extra.id || 'extra', window: extra.window || extra });
+  }
+
   const directPercent = Number(raw.percent ?? raw.percentage ?? raw.usage_percent ?? raw.usagePercent ?? raw.used_percent);
   const used = Number(raw.used ?? raw.current ?? raw.tokens ?? raw.total_tokens ?? raw.totalTokens ?? raw.usage ?? raw.input_tokens ?? 0);
   const limit = Number(raw.limit ?? raw.max ?? raw.quota ?? raw.total ?? raw.allowed ?? 0);
-  const percent = Number.isFinite(directPercent)
-    ? directPercent
-    : limit > 0
-      ? (used / limit) * 100
-      : Number.isFinite(used) && used > 0
-        ? Math.min(100, Math.max(8, Math.log10(used + 1) * 18))
-        : 8;
+
+  let percent = 0;
+  if (windows.length) {
+    const nonInformational = windows.filter((entry) => !entry.window?.is_informational && !entry.window?.isInformational);
+    const candidates = (nonInformational.length ? nonInformational : windows).map((entry) => windowPercent(entry.window));
+    percent = Math.max(...candidates, 0);
+  } else if (Number.isFinite(directPercent)) {
+    percent = directPercent;
+  } else if (limit > 0) {
+    percent = (used / limit) * 100;
+  } else if (Number.isFinite(used) && used > 0) {
+    percent = Math.min(100, Math.max(8, Math.log10(used + 1) * 18));
+  }
+
+  const detailParts = windows
+    .filter((entry) => Number.isFinite(windowPercent(entry.window)))
+    .slice(0, 3)
+    .map((entry) => `${entry.name} ${Math.round(windowPercent(entry.window))}%`);
+  const detail = raw.detail || raw.summary || detailParts.join(' · ') || tokenLabel(used);
 
   return {
     id,
     label: String(label),
     percent: Math.max(0, Math.min(100, Math.round(percent))),
-    state: raw.state || raw.status || (used > 0 ? 'active' : 'ready'),
-    detail: raw.detail || raw.summary || tokenLabel(used),
+    state: percent > 0 ? 'active' : 'ready',
+    detail,
+    hasUsage: true,
+    hasError: false,
   };
 }
-
 function flattenUsagePayload(payload) {
   if (!payload) return [];
   if (Array.isArray(payload)) return payload;
@@ -328,12 +379,31 @@ function readCodexCostCacheProvider() {
   }
 }
 
-function readProviderUsage() {
-  const providers = readProvidersFromCli();
-  if (providers.length) return providers.slice(0, 12);
+function isNotableProviderError(provider) {
+  if (!provider?.hasError) return false;
+  if (/Provider not installed|No cookies available/i.test(provider.detail || '')) return false;
+  return ['claude', 'cursor', 'codex', 'copilot', 'openaiapi', 'openrouter', 'gemini'].includes(provider.id);
+}
 
-  const fallback = [readCodexCostCacheProvider()].filter(Boolean);
-  return fallback;
+function readProviderUsage() {
+  const now = Date.now();
+  if (providerUsageCache.providers.length && now - providerUsageCache.readAt < PROVIDER_USAGE_TTL_MS) {
+    return providerUsageCache.providers;
+  }
+
+  const cliProviders = readProvidersFromCli();
+  const usageProviders = cliProviders.filter((provider) => provider.hasUsage);
+  const notableErrors = cliProviders.filter(isNotableProviderError);
+  const fallbackCodex = readCodexCostCacheProvider();
+
+  const merged = [];
+  for (const provider of [...usageProviders, ...notableErrors, fallbackCodex].filter(Boolean)) {
+    if (merged.some((existing) => existing.id === provider.id)) continue;
+    merged.push(provider);
+  }
+
+  providerUsageCache = { providers: merged.slice(0, 12), readAt: now };
+  return providerUsageCache.providers;
 }
 function refreshStatus() {
   statusCache.running = isCodexBarRunning();
@@ -457,6 +527,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => app.quit());
+
 
 
 
