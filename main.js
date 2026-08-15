@@ -207,8 +207,137 @@ function verifyArtifact() {
   return statusCache;
 }
 
+
+function tokenLabel(totalTokens) {
+  if (!Number.isFinite(totalTokens) || totalTokens <= 0) return 'no usage yet';
+  if (totalTokens >= 1_000_000) return `${(totalTokens / 1_000_000).toFixed(1)}M tok`;
+  if (totalTokens >= 1_000) return `${(totalTokens / 1_000).toFixed(1)}K tok`;
+  return `${Math.round(totalTokens)} tok`;
+}
+
+function normalizeProviderRecord(raw, index = 0) {
+  const id = String(raw.id || raw.provider || raw.name || raw.label || `provider-${index}`).toLowerCase();
+  const label = raw.label || raw.display_name || raw.displayName || raw.name || raw.provider || id;
+  const directPercent = Number(raw.percent ?? raw.percentage ?? raw.usage_percent ?? raw.usagePercent ?? raw.used_percent);
+  const used = Number(raw.used ?? raw.current ?? raw.tokens ?? raw.total_tokens ?? raw.totalTokens ?? raw.usage ?? raw.input_tokens ?? 0);
+  const limit = Number(raw.limit ?? raw.max ?? raw.quota ?? raw.total ?? raw.allowed ?? 0);
+  const percent = Number.isFinite(directPercent)
+    ? directPercent
+    : limit > 0
+      ? (used / limit) * 100
+      : Number.isFinite(used) && used > 0
+        ? Math.min(100, Math.max(8, Math.log10(used + 1) * 18))
+        : 8;
+
+  return {
+    id,
+    label: String(label),
+    percent: Math.max(0, Math.min(100, Math.round(percent))),
+    state: raw.state || raw.status || (used > 0 ? 'active' : 'ready'),
+    detail: raw.detail || raw.summary || tokenLabel(used),
+  };
+}
+
+function flattenUsagePayload(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  for (const key of ['providers', 'items', 'usage', 'results', 'data']) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  if (typeof payload === 'object') {
+    return Object.entries(payload)
+      .filter(([, value]) => value && typeof value === 'object')
+      .map(([key, value]) => ({ id: key, provider: key, ...value }));
+  }
+  return [];
+}
+
+function cliCandidates() {
+  const candidates = [
+    path.join(__dirname, 'dist', 'codexbar-cli.exe'),
+    path.join(__dirname, 'dist', 'codexbar.exe'),
+    path.join(path.dirname(exePath), 'codexbar-cli.exe'),
+    path.join(path.dirname(exePath), 'codexbar.exe'),
+  ];
+
+  for (const command of ['codexbar-cli', 'codexbar']) {
+    try {
+      const resolved = execFileSync('where.exe', [command], { timeout: 2000, windowsHide: true })
+        .toString()
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      candidates.push(...resolved);
+    } catch {}
+  }
+
+  return [...new Set(candidates)].filter((candidate) => fs.existsSync(candidate));
+}
+
+function readProvidersFromCli() {
+  for (const cli of cliCandidates()) {
+    try {
+      const out = execFileSync(cli, ['usage', '-p', 'all', '-f', 'json'], {
+        timeout: 20000,
+        windowsHide: true,
+      }).toString().trim();
+      if (!out) continue;
+      const payload = JSON.parse(out);
+      const records = flattenUsagePayload(payload).map(normalizeProviderRecord).filter(Boolean);
+      if (records.length) return records;
+    } catch {}
+  }
+  return [];
+}
+
+function readCodexCostCacheProvider() {
+  const cachePath = path.join(process.env.LOCALAPPDATA || '', 'CodexBar', 'cost-usage', 'codex-v1.json');
+  try {
+    const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    const days = cache.days || {};
+    const dayKeys = Object.keys(days).sort();
+    const latestDay = dayKeys.at(-1);
+    if (!latestDay) return null;
+
+    const models = days[latestDay] || {};
+    let input = 0;
+    let cached = 0;
+    let output = 0;
+    for (const totals of Object.values(models)) {
+      if (!Array.isArray(totals)) continue;
+      input += Number(totals[0] || 0);
+      cached += Number(totals[1] || 0);
+      output += Number(totals[2] || 0);
+    }
+
+    const totalTokens = input + output;
+    if (totalTokens <= 0) return null;
+    const modelCount = Object.keys(models).length;
+    return {
+      id: 'codex',
+      label: 'Codex',
+      percent: Math.max(12, Math.min(100, Math.round(Math.log10(totalTokens + 1) * 16))),
+      state: 'active',
+      detail: `${tokenLabel(totalTokens)} today · ${modelCount} model${modelCount === 1 ? '' : 's'}`,
+      input,
+      cached,
+      output,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readProviderUsage() {
+  const providers = readProvidersFromCli();
+  if (providers.length) return providers.slice(0, 12);
+
+  const fallback = [readCodexCostCacheProvider()].filter(Boolean);
+  return fallback;
+}
 function refreshStatus() {
   statusCache.running = isCodexBarRunning();
+  statusCache.providers = readProviderUsage();
   try {
     if (!statusCache.verified) verifyArtifact();
   } catch (error) {
@@ -328,6 +457,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => app.quit());
+
 
 
 

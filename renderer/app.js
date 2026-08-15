@@ -87,3 +87,4 @@ pillEl.addEventListener('pointerup', async (event) => {
 
 window.aiUsageBar.onStatusUpdated(renderStatus);
 refreshStatus();
+
