@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile, execFileSync, spawn } = require('child_process');
@@ -11,6 +11,7 @@ const DOCK_REFRESH_MS = 60 * 1000;
 const TOPMOST_REFRESH_MS = 250;
 const PROCESS_REFRESH_MS = 3000;
 const APP_VERSION = '0.48.0';
+const TOPMOST_LEVEL = 'screen-saver';
 
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
 const AUTOSTART_MARKER = path.join(app.getPath('userData'), 'autostart-initialized');
@@ -77,7 +78,9 @@ function refreshTaskbarRect() {
       windowsHide: true,
     });
     const rect = JSON.parse(out.toString());
-    if (rect.trayLeft < rect.trayRight) taskbarRect = rect;
+    const hasTaskbar = rect.taskbarLeft < rect.taskbarRight && rect.taskbarTop < rect.taskbarBottom;
+    const hasTrayCluster = rect.trayLeft < rect.trayRight && rect.trayTop < rect.trayBottom;
+    if (hasTaskbar && hasTrayCluster) taskbarRect = rect;
   } catch {}
 }
 
@@ -158,12 +161,13 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setAlwaysOnTop(true, TOPMOST_LEVEL);
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadFile('renderer/index.html');
   win.on('closed', () => (win = null));
-  win.on('show', () => win.setAlwaysOnTop(true, 'screen-saver'));
-  win.on('blur', () => win.setAlwaysOnTop(true, 'screen-saver'));
-  setInterval(() => win && win.setAlwaysOnTop(true, 'screen-saver'), TOPMOST_REFRESH_MS);
+  win.on('show', () => win.setAlwaysOnTop(true, TOPMOST_LEVEL));
+  win.on('blur', () => win.setAlwaysOnTop(true, TOPMOST_LEVEL));
+  setInterval(() => win && win.setAlwaysOnTop(true, TOPMOST_LEVEL), TOPMOST_REFRESH_MS);
 }
 
 function redock() {
@@ -327,7 +331,11 @@ app.whenReady().then(() => {
   refreshStatus();
   setInterval(refreshStatus, PROCESS_REFRESH_MS);
   setInterval(redock, DOCK_REFRESH_MS);
+  screen.on('display-added', redock);
+  screen.on('display-removed', redock);
   screen.on('display-metrics-changed', redock);
 });
 
 app.on('window-all-closed', () => app.quit());
+
+
