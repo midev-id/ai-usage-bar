@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -6,77 +6,8 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="pill" class="pill">
-    <div class="pill-left">
-      <span id="status-dot" class="dot"></span>
-      <div>
-        <div class="pill-title">AI Usage</div>
-        <div id="pill-subtitle" class="pill-subtitle">Checking…</div>
-      </div>
-    </div>
-    <div class="pill-stats">
-      <span id="pill-version">v0.48.0</span>
-      <span id="pill-state" class="state">Idle</span>
-    </div>
-  </div>
-
-  <div id="panel" class="panel hidden">
-    <div class="panel-header">
-      <div>
-        <div class="panel-title">AI Usage Bar</div>
-        <div class="panel-subtitle">Taskbar mode · powered by CodexBar</div>
-      </div>
-      <div class="header-actions">
-        <button id="settings-btn" class="icon-btn" title="Settings">⚙</button>
-        <button id="collapse-btn" class="icon-btn" title="Collapse">▴</button>
-      </div>
-    </div>
-
-    <div class="panel-body">
-      <div id="main-view">
-        <div class="hero-card">
-          <div>
-            <div id="hero-status" class="hero-status">Ready</div>
-            <div id="hero-detail" class="hero-detail">Portable executable verified.</div>
-          </div>
-          <button id="open-btn" class="primary-btn">Open CodexBar</button>
-        </div>
-
-        <div class="meta-grid">
-          <div class="meta-item">
-            <span>Version</span>
-            <strong id="version-value">0.48.0</strong>
-          </div>
-          <div class="meta-item">
-            <span>Checksum</span>
-            <strong id="checksum-value">checking</strong>
-          </div>
-        </div>
-
-        <div class="actions-row">
-          <button id="verify-btn">Verify</button>
-          <button id="folder-btn">Folder</button>
-          <button id="quit-btn">Quit</button>
-        </div>
-      </div>
-
-      <div id="settings-view" class="hidden">
-        <section>
-          <h3>Lebar Bar</h3>
-          <div class="settings-row">
-            <input type="range" id="width-slider" min="240" max="360" step="10" />
-            <span id="width-value">-</span>
-          </div>
-        </section>
-        <section>
-          <h3>Startup</h3>
-          <label class="settings-row">
-            <input type="checkbox" id="autostart-toggle" />
-            Jalankan otomatis saat Windows start
-          </label>
-        </section>
-      </div>
-    </div>
+  <div id="pill" class="pill" title="AI Usage Bar">
+    <div id="usage-strip" class="usage-strip" aria-label="AI usage bars"></div>
   </div>
 
   <script src="app.js"></script>

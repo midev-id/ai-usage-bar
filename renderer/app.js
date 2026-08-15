@@ -1,89 +1,68 @@
-const PILL_HEIGHT = 46;
-const PANEL_HEIGHT = 260;
-const DRAG_THRESHOLD = 4;
+﻿const DRAG_THRESHOLD = 4;
 
-let expanded = false;
-let appSettings = {
-  width: 300,
-  minWidth: 240,
-  maxWidth: 360,
-  autostart: false,
-};
+const pillEl = document.getElementById('pill');
+const stripEl = document.getElementById('usage-strip');
 
-const els = {
-  pill: document.getElementById('pill'),
-  panel: document.getElementById('panel'),
-  statusDot: document.getElementById('status-dot'),
-  pillSubtitle: document.getElementById('pill-subtitle'),
-  pillVersion: document.getElementById('pill-version'),
-  pillState: document.getElementById('pill-state'),
-  heroStatus: document.getElementById('hero-status'),
-  heroDetail: document.getElementById('hero-detail'),
-  versionValue: document.getElementById('version-value'),
-  checksumValue: document.getElementById('checksum-value'),
-  openBtn: document.getElementById('open-btn'),
-  verifyBtn: document.getElementById('verify-btn'),
-  folderBtn: document.getElementById('folder-btn'),
-  quitBtn: document.getElementById('quit-btn'),
-  settingsBtn: document.getElementById('settings-btn'),
-  collapseBtn: document.getElementById('collapse-btn'),
-  mainView: document.getElementById('main-view'),
-  settingsView: document.getElementById('settings-view'),
-  widthSlider: document.getElementById('width-slider'),
-  widthValue: document.getElementById('width-value'),
-  autostartToggle: document.getElementById('autostart-toggle'),
-};
+let dragStart = null;
+let dragging = false;
+let latestStatus = null;
 
-function shortHash(hash) {
-  return hash ? `${hash.slice(0, 8)}…${hash.slice(-6)}` : 'pending';
+function normalizeBars(status) {
+  if (Array.isArray(status?.providers) && status.providers.length) {
+    return status.providers.slice(0, 12).map((provider) => ({
+      id: provider.id || provider.name || 'provider',
+      label: provider.label || provider.name || provider.id || 'AI',
+      percent: Number.isFinite(provider.percent) ? provider.percent : 0,
+      state: provider.state || 'ready',
+    }));
+  }
+
+  if (status?.lastError) {
+    return [{ id: 'error', label: 'CodexBar error', percent: 100, state: 'error' }];
+  }
+
+  if (status?.running) {
+    return [{ id: 'codexbar', label: 'CodexBar running', percent: 100, state: 'active' }];
+  }
+
+  if (status?.verified) {
+    return [{ id: 'codexbar', label: 'CodexBar ready', percent: 42, state: 'ready' }];
+  }
+
+  return [{ id: 'codexbar', label: 'CodexBar inactive', percent: 18, state: 'inactive' }];
 }
 
 function renderStatus(status) {
-  const hasError = !!status.lastError;
-  els.statusDot.classList.toggle('running', status.running && !hasError);
-  els.statusDot.classList.toggle('error', hasError);
+  latestStatus = status;
+  const bars = normalizeBars(status);
+  stripEl.innerHTML = '';
 
-  els.pillVersion.textContent = `v${status.version || '0.48.0'}`;
-  els.pillState.textContent = hasError ? 'Error' : status.running ? 'Running' : 'Ready';
-  els.pillSubtitle.textContent = hasError ? 'Verification failed' : status.verified ? 'Verified portable app' : 'Needs verify';
+  for (const bar of bars) {
+    const value = Math.max(8, Math.min(100, Math.round(bar.percent || 0)));
+    const item = document.createElement('div');
+    item.className = `usage-bar ${bar.state}`;
+    item.title = `${bar.label}: ${value}%`;
 
-  els.heroStatus.textContent = hasError ? 'Action needed' : status.running ? 'CodexBar running' : 'Ready to open';
-  els.heroDetail.textContent = status.lastError || (status.verified ? 'Portable executable verified.' : 'Run Verify before launch.');
-  els.versionValue.textContent = status.version || '0.48.0';
-  els.checksumValue.textContent = shortHash(status.hash);
+    const fill = document.createElement('div');
+    fill.className = 'usage-fill';
+    fill.style.height = `${value}%`;
+
+    item.appendChild(fill);
+    stripEl.appendChild(item);
+  }
 }
 
 async function refreshStatus() {
   renderStatus(await window.aiUsageBar.getStatus());
 }
 
-async function refreshSettings() {
-  appSettings = await window.aiUsageBar.getSettings();
-  els.widthSlider.min = appSettings.minWidth;
-  els.widthSlider.max = appSettings.maxWidth;
-  els.widthSlider.value = appSettings.width;
-  els.widthValue.textContent = `${appSettings.width}px`;
-  els.autostartToggle.checked = appSettings.autostart;
-}
-
-async function setExpanded(next) {
-  expanded = next;
-  const height = expanded ? PANEL_HEIGHT : PILL_HEIGHT;
-  const { flipped } = await window.aiUsageBar.resizeWindow(appSettings.width, height, expanded);
-  document.body.classList.toggle('flipped', expanded && flipped);
-  els.panel.classList.toggle('hidden', !expanded);
-}
-
-let dragStart = null;
-let dragging = false;
-
-els.pill.addEventListener('pointerdown', (event) => {
+pillEl.addEventListener('pointerdown', (event) => {
   dragStart = { x: event.screenX, y: event.screenY };
   dragging = false;
-  els.pill.setPointerCapture(event.pointerId);
+  pillEl.setPointerCapture(event.pointerId);
 });
 
-els.pill.addEventListener('pointermove', (event) => {
+pillEl.addEventListener('pointermove', (event) => {
   if (!dragStart) return;
   const dx = event.screenX - dragStart.x;
   const dy = event.screenY - dragStart.y;
@@ -94,36 +73,17 @@ els.pill.addEventListener('pointermove', (event) => {
   if (dragging) window.aiUsageBar.dragPillMove(dx, dy);
 });
 
-els.pill.addEventListener('pointerup', (event) => {
-  if (dragStart && !dragging) setExpanded(!expanded);
-  if (dragging) window.aiUsageBar.dragPillEnd();
+pillEl.addEventListener('pointerup', async (event) => {
+  if (dragging) {
+    window.aiUsageBar.dragPillEnd();
+  } else {
+    await window.aiUsageBar.launchCodexBar();
+    refreshStatus();
+  }
   dragStart = null;
   dragging = false;
-  els.pill.releasePointerCapture(event.pointerId);
-});
-
-els.openBtn.addEventListener('click', async () => {
-  await window.aiUsageBar.launchCodexBar();
-  refreshStatus();
-});
-els.verifyBtn.addEventListener('click', async () => renderStatus(await window.aiUsageBar.verifyArtifact()));
-els.folderBtn.addEventListener('click', () => window.aiUsageBar.openFolder());
-els.quitBtn.addEventListener('click', () => window.aiUsageBar.quit());
-els.collapseBtn.addEventListener('click', () => setExpanded(false));
-els.settingsBtn.addEventListener('click', () => {
-  const showingSettings = els.settingsView.classList.toggle('hidden') === false;
-  els.mainView.classList.toggle('hidden', showingSettings);
-});
-els.widthSlider.addEventListener('input', async (event) => {
-  const width = Number(event.target.value);
-  els.widthValue.textContent = `${width}px`;
-  appSettings = await window.aiUsageBar.setSettings({ width });
-});
-els.autostartToggle.addEventListener('change', async (event) => {
-  appSettings = await window.aiUsageBar.setSettings({ autostart: event.target.checked });
+  pillEl.releasePointerCapture(event.pointerId);
 });
 
 window.aiUsageBar.onStatusUpdated(renderStatus);
-
-refreshSettings();
 refreshStatus();

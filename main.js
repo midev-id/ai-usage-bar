@@ -3,10 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const { execFile, execFileSync, spawn } = require('child_process');
 
-const PILL_HEIGHT = 46;
-const PANEL_HEIGHT = 260;
-const MIN_WIDTH = 240;
-const MAX_WIDTH = 360;
+const PILL_HEIGHT = 30;
+const PANEL_HEIGHT = 30;
+const MIN_WIDTH = 68;
+const MAX_WIDTH = 180;
 const DOCK_REFRESH_MS = 60 * 1000;
 const TOPMOST_REFRESH_MS = 250;
 const PROCESS_REFRESH_MS = 3000;
@@ -32,7 +32,7 @@ let statusCache = {
   lastError: null,
 };
 let settings = {
-  width: 300,
+  width: 88,
   dockDisplayId: null,
   dockX: null,
 };
@@ -274,29 +274,20 @@ ipcMain.handle('set-settings', (_event, patch) => {
     autostart: app.getLoginItemSettings().openAtLogin,
   };
 });
-ipcMain.handle('resize-window', (_event, { width, height, expanding }) => {
+ipcMain.handle('resize-window', (_event, { width, height }) => {
   if (!win) return { flipped: false };
   const anchor = pillAnchor();
   const workArea = screen.getDisplayNearestPoint(anchor).workArea;
-  let nextFlipped = false;
-  let y = anchor.y;
-  if (expanding) {
-    const panelHeight = height - PILL_HEIGHT;
-    const spaceBelow = workArea.y + workArea.height - (anchor.y + PILL_HEIGHT);
-    if (panelHeight > spaceBelow) {
-      nextFlipped = true;
-      y = Math.max(workArea.y, anchor.y - panelHeight);
-    }
-  }
   let x = anchor.x + collapsedSize().width - width;
   x = Math.min(Math.max(x, workArea.x), workArea.x + workArea.width - width);
-  moveWindow({ x, y, width, height });
-  flipped = nextFlipped;
-  return { flipped };
+  moveWindow({ x, y: anchor.y, width, height });
+  flipped = false;
+  return { flipped: false };
 });
 ipcMain.on('pill-drag-start', () => {
   if (win) dragStartBounds = win.getBounds();
 });
+
 ipcMain.on('pill-drag-move', (_event, { dx, dy }) => {
   if (!win || !dragStartBounds) return;
   const targetX = dragStartBounds.x + dx;
@@ -337,5 +328,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => app.quit());
+
+
 
 
