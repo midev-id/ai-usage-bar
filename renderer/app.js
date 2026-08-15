@@ -86,5 +86,6 @@ pillEl.addEventListener('pointerup', async (event) => {
 });
 
 window.aiUsageBar.onStatusUpdated(renderStatus);
+renderStatus({ providers: [{ id: 'loading', label: 'Loading usage', percent: 35, state: 'ready' }] });
 refreshStatus();
 

@@ -10,6 +10,8 @@ const MAX_WIDTH = 180;
 const DOCK_REFRESH_MS = 60 * 1000;
 const TOPMOST_REFRESH_MS = 250;
 const PROCESS_REFRESH_MS = 3000;
+const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
+const CLI_USAGE_TIMEOUT_MS = 60 * 1000;
 const APP_VERSION = '0.48.0';
 const TOPMOST_LEVEL = 'screen-saver';
 
@@ -30,7 +32,12 @@ let statusCache = {
   version: APP_VERSION,
   exePath,
   lastError: null,
+  providers: [
+    { id: 'loading', label: 'Loading usage', percent: 35, state: 'ready', detail: 'Loading AI usage' },
+  ],
 };
+let providerUsageCache = { providers: [], readAt: 0 };
+let providerRefreshInFlight = false;
 let settings = {
   width: 88,
   dockDisplayId: null,
@@ -64,6 +71,10 @@ function loadSettings() {
   try {
     settings = { ...settings, ...JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) };
   } catch {}
+
+  settings.width = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(Number(settings.width) || 88)));
+  if (!Number.isFinite(settings.dockX)) settings.dockX = null;
+  if (!Number.isFinite(settings.dockDisplayId)) settings.dockDisplayId = null;
 }
 
 function saveSettings() {
@@ -341,6 +352,40 @@ function readProvidersFromCli() {
   return [];
 }
 
+function readProvidersFromCliAsync() {
+  const candidates = cliCandidates();
+  let index = 0;
+
+  return new Promise((resolve) => {
+    const tryNext = () => {
+      const cli = candidates[index++];
+      if (!cli) {
+        resolve([]);
+        return;
+      }
+
+      execFile(cli, ['usage', '-p', 'all', '-f', 'json'], {
+        timeout: CLI_USAGE_TIMEOUT_MS,
+        windowsHide: true,
+      }, (error, stdout) => {
+        if (!error && stdout?.trim()) {
+          try {
+            const payload = JSON.parse(stdout.trim());
+            const records = flattenUsagePayload(payload).map(normalizeProviderRecord).filter(Boolean);
+            if (records.length) {
+              resolve(records);
+              return;
+            }
+          } catch {}
+        }
+        tryNext();
+      });
+    };
+
+    tryNext();
+  });
+}
+
 function readCodexCostCacheProvider() {
   const cachePath = path.join(process.env.LOCALAPPDATA || '', 'CodexBar', 'cost-usage', 'codex-v1.json');
   try {
@@ -391,19 +436,49 @@ function readProviderUsage() {
     return providerUsageCache.providers;
   }
 
-  const cliProviders = readProvidersFromCli();
-  const usageProviders = cliProviders.filter((provider) => provider.hasUsage);
-  const notableErrors = cliProviders.filter(isNotableProviderError);
   const fallbackCodex = readCodexCostCacheProvider();
+  const immediate = providerUsageCache.providers.length
+    ? providerUsageCache.providers
+    : [fallbackCodex || {
+      id: 'loading',
+      label: 'Loading usage',
+      percent: 35,
+      state: 'ready',
+      detail: 'Loading AI usage',
+      hasUsage: true,
+      hasError: false,
+    }];
 
-  const merged = [];
-  for (const provider of [...usageProviders, ...notableErrors, fallbackCodex].filter(Boolean)) {
-    if (merged.some((existing) => existing.id === provider.id)) continue;
-    merged.push(provider);
+  refreshProviderUsageAsync();
+  return immediate.slice(0, 12);
+}
+
+async function refreshProviderUsageAsync() {
+  if (providerRefreshInFlight) return;
+  const now = Date.now();
+  if (providerUsageCache.providers.length && now - providerUsageCache.readAt < PROVIDER_USAGE_TTL_MS) return;
+
+  providerRefreshInFlight = true;
+  try {
+    const cliProviders = await readProvidersFromCliAsync();
+    const usageProviders = cliProviders.filter((provider) => provider.hasUsage);
+    const notableErrors = cliProviders.filter(isNotableProviderError);
+    const fallbackCodex = readCodexCostCacheProvider();
+
+    const merged = [];
+    for (const provider of [...usageProviders, ...notableErrors, fallbackCodex].filter(Boolean)) {
+      if (merged.some((existing) => existing.id === provider.id)) continue;
+      merged.push(provider);
+    }
+
+    if (merged.length) {
+      providerUsageCache = { providers: merged.slice(0, 12), readAt: Date.now() };
+      statusCache.providers = providerUsageCache.providers;
+      if (win) win.webContents.send('status-updated', statusCache);
+    }
+  } finally {
+    providerRefreshInFlight = false;
   }
-
-  providerUsageCache = { providers: merged.slice(0, 12), readAt: now };
-  return providerUsageCache.providers;
 }
 function refreshStatus() {
   statusCache.running = isCodexBarRunning();
@@ -527,9 +602,4 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => app.quit());
-
-
-
-
-
 
