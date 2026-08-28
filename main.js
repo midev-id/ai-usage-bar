@@ -12,6 +12,7 @@ const TOPMOST_REFRESH_MS = 250;
 const PROCESS_REFRESH_MS = 3000;
 const PROVIDER_USAGE_TTL_MS = 5 * 60 * 1000;
 const CLI_USAGE_TIMEOUT_MS = 60 * 1000;
+const CLAUDE_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 const APP_VERSION = '0.48.0';
 const TOPMOST_LEVEL = 'screen-saver';
 
@@ -386,6 +387,47 @@ function readProvidersFromCliAsync() {
   });
 }
 
+async function readClaudeUsageFallback() {
+  const credentialDirs = [
+    process.env.CLAUDE_CONFIG_DIR,
+    path.join(app.getPath('home'), '.claude'),
+  ].filter(Boolean);
+
+  for (const dir of [...new Set(credentialDirs)]) {
+    try {
+      const credentials = JSON.parse(fs.readFileSync(path.join(dir, '.credentials.json'), 'utf8'));
+      const token = credentials?.claudeAiOauth?.accessToken;
+      if (!token) continue;
+
+      const response = await fetch(CLAUDE_USAGE_URL, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'anthropic-beta': 'oauth-2025-04-20',
+        },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) continue;
+
+      const usage = await response.json();
+      const fiveHour = Number(usage?.five_hour?.utilization);
+      const sevenDay = Number(usage?.seven_day?.utilization);
+      if (!Number.isFinite(fiveHour) && !Number.isFinite(sevenDay)) continue;
+
+      const windows = [
+        Number.isFinite(fiveHour) && `5h ${Math.round(fiveHour)}%`,
+        Number.isFinite(sevenDay) && `7d ${Math.round(sevenDay)}%`,
+      ].filter(Boolean);
+      return {
+        id: 'claude',
+        label: 'Claude',
+        percent: Math.max(fiveHour || 0, sevenDay || 0),
+        detail: windows.join(' · '),
+      };
+    } catch {}
+  }
+  return null;
+}
+
 function readCodexCostCacheProvider() {
   const cachePath = path.join(process.env.LOCALAPPDATA || '', 'CodexBar', 'cost-usage', 'codex-v1.json');
   try {
@@ -463,10 +505,11 @@ async function refreshProviderUsageAsync() {
     const cliProviders = await readProvidersFromCliAsync();
     const usageProviders = cliProviders.filter((provider) => provider.hasUsage);
     const notableErrors = cliProviders.filter(isNotableProviderError);
+    const claudeFallback = await readClaudeUsageFallback();
     const fallbackCodex = readCodexCostCacheProvider();
 
     const merged = [];
-    for (const provider of [...usageProviders, ...notableErrors, fallbackCodex].filter(Boolean)) {
+    for (const provider of [...usageProviders, claudeFallback, ...notableErrors, fallbackCodex].filter(Boolean)) {
       if (merged.some((existing) => existing.id === provider.id)) continue;
       merged.push(provider);
     }
